@@ -10,10 +10,10 @@ import (
 
 func (app *application) createBookHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Title  string   `json:"title"`
-		Year   int32    `json:"year"`
-		Pages  int32    `json:"pages"`
-		Genres []string `json:"genres"`
+		Title  string     `json:"title"`
+		Year   int32      `json:"year"`
+		Pages  data.Pages `json:"pages"`
+		Genres []string   `json:"genres"`
 	}
 
 	err := app.readJSON(w, r, &input)
