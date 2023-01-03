@@ -23,21 +23,15 @@ func (app *application) createBookHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	book := &data.Book{
+		Title:  input.Title,
+		Year:   input.Year,
+		Pages:  input.Pages,
+		Genres: input.Genres,
+	}
+
 	v := validator.New()
-
-	v.Check(input.Title != "", "title", "must be provided")
-	v.Check(len(input.Title) <= 500, "title", "must not be longer than 500 bytes")
-
-	v.Check(input.Year != 0, "year", "must be provided")
-	v.Check(input.Year <= int32(time.Now().Year()), "year", "must not be in future")
-
-	v.Check(input.Pages != 0, "pages", "must be provided")
-	v.Check(input.Pages > 0, "pages", "must be > 0")
-
-	v.Check(input.Genres != nil, "genres", "must be provided")
-	v.Check(len(input.Genres) >= 1, "genres", "must contain at least 1 entry")
-	v.Check(len(input.Genres) <= 5, "genres", "must not contain more than 5 entries")
-	v.Check(v.Unique(input.Genres), "genres", "must contain unique entries")
+	data.ValidateBook(v, book)
 
 	if !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
