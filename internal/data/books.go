@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"time"
@@ -34,15 +35,18 @@ func (bm BookModel) Insert(book *Book) error {
 }
 
 func (bm BookModel) Get(id int64) (*Book, error) {
-	stmt := `SELECT id, created_at, title, year, pages, genres, version
+	stmt := `SELECT id, created_at, title, year, author, pages, genres, version
 	FROM books
 	WHERE id=$1`
 
 	var book Book
 
-	err := bm.DB.QueryRow(stmt, id).Scan(
-		&book.ID, &book.CreatedAt, &book.Title,
-		&book.Year, &book.Pages, pq.Array(&book.Genres), &book.Version,
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	err := bm.DB.QueryRowContext(ctx, stmt, id).Scan(
+		&book.ID, &book.CreatedAt, &book.Title, &book.Year,
+		&book.Author, &book.Pages, pq.Array(&book.Genres), &book.Version,
 	)
 
 	if err != nil {
@@ -58,11 +62,20 @@ func (bm BookModel) Get(id int64) (*Book, error) {
 func (bm BookModel) Update(book *Book) error {
 	stmt := `UPDATE books
 	SET title = $1, year = $2, pages = $3, genres = $4, author = $5, version = version + 1
-	WHERE id = $6
+	WHERE id = $6 AND version = $7
 	RETURNING version`
 
-	args := []interface{}{book.Title, book.Year, book.Pages, pq.Array(book.Genres), book.Author, book.ID}
-	return bm.DB.QueryRow(stmt, args...).Scan(&book.Version)
+	args := []interface{}{book.Title, book.Year, book.Pages, pq.Array(book.Genres), book.Author, book.ID, book.Version}
+	err := bm.DB.QueryRow(stmt, args...).Scan(&book.Version)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return ErrEditConflict
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func (bm BookModel) Delete(id int64) error {
