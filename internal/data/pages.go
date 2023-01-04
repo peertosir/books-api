@@ -12,7 +12,7 @@ type Pages int32
 var ErrInvalidPagesFormat = errors.New("invalid pages format")
 
 func (p *Pages) MarshalJSON() ([]byte, error) {
-	jsonValue := fmt.Sprintf("%d pgs", p)
+	jsonValue := fmt.Sprintf("%d pgs", *p)
 	quotedJSONValue := strconv.Quote(jsonValue)
 	return []byte(quotedJSONValue), nil
 }

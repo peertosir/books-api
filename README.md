@@ -10,9 +10,14 @@ Also you can user another names for DB and user/password, but be aware of updati
 Load dev env variables from file:
 ```export $(xargs < .env/dev.env)```
 
+### Connect to local DB vs psql
+```psql $PGSQL_DSN```
+
 ### Tools
-```brew install golang-migrate``` - for migrations
+```brew install golang-migrate``` - tool for migrations
 
 Create migration - ```migrate create -seq -ext=.sql -dir=./migrations create_books_table``` - for example
 
 Migrate up - ```migrate -path=./migrations -database=$PGSQL_DSN up```
+
+Migrate down - ```migrate -path=./migrations -database=$PGSQL_DSN down```
