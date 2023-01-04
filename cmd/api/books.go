@@ -17,6 +17,14 @@ type bookRequestDto struct {
 	Genres []string   `json:"genres"`
 }
 
+type nullableBookRequestDto struct {
+	Title  *string     `json:"title"`
+	Year   *int32      `json:"year"`
+	Author *string     `json:"author"`
+	Pages  *data.Pages `json:"pages"`
+	Genres []string    `json:"genres"`
+}
+
 func (app *application) createBookHandler(w http.ResponseWriter, r *http.Request) {
 	var input bookRequestDto
 
@@ -125,11 +133,90 @@ func (app *application) updateBookHandler(w http.ResponseWriter, r *http.Request
 
 	err = app.models.Books.Update(book)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"book": book}, nil)
+
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) patchBookHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResonse(w, r)
+		return
+	}
+
+	target, err := app.models.Books.Get(id)
+	app.logger.Printf("%+v", target)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResonse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	var input nullableBookRequestDto
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if input.Author != nil {
+		target.Author = *input.Author
+	}
+
+	if input.Title != nil {
+		target.Title = *input.Title
+	}
+
+	if input.Year != nil {
+		target.Year = *input.Year
+	}
+
+	if input.Genres != nil {
+		target.Genres = input.Genres
+	}
+
+	if input.Pages != nil {
+		target.Pages = *input.Pages
+	}
+
+	v := validator.New()
+
+	data.ValidateBook(v, target)
+
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Books.Update(target)
+	if err != nil {
+		switch {
+		case errors.Is(err, data.ErrEditConflict):
+			app.editConflictResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"book": target}, nil)
 
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
